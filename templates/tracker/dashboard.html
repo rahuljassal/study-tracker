@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}My learning plans · Study Tracker{% endblock %}
+{% block content %}
+<section class="heading-row">
+  <div>
+    <p class="eyebrow">PERSONAL LEARNING SPACE</p>
+    <h1>My learning plans</h1>
+    <p class="intro">A quiet place to keep your next learning steps moving.</p>
+  </div>
+</section>
+<section class="plan-list" aria-label="Learning plans">
+  {% for playlist in playlists %}
+    <article class="plan-row">
+      <div>
+        <h2>{{ playlist.name }}</h2>
+        <p>{{ playlist.videos.count }} steps · starts {{ playlist.start_date|date:"M j, Y" }}</p>
+      </div>
+      <span class="plan-mark" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
+    </article>
+  {% empty %}
+    <p class="empty-state">No learning plans yet.</p>
+  {% endfor %}
+</section>
+<p class="phase-note">Your account and private learning-plan foundation is ready. Playlist editing and progress tracking arrive in the next phase.</p>
+{% endblock %}

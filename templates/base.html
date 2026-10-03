@@ -1,0 +1,30 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Study Tracker{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'tracker/app.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'dashboard' %}">Study Tracker</a>
+    {% if user.is_authenticated %}
+      <div class="account">
+        <span>{{ user.email|default:user.username }}</span>
+        <form method="post" action="{% url 'account_logout' %}">
+          {% csrf_token %}
+          <button class="text-button" type="submit">Sign out</button>
+        </form>
+      </div>
+    {% endif %}
+  </header>
+  <main class="page">
+    {% if messages %}
+      {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
