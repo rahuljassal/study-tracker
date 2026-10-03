@@ -32,6 +32,12 @@ Restart the development server after changing `.env`. OAuth flows cannot be comp
 
 After signing in, use **New playlist** to create a plan, optionally paste video lines, and open a playlist to add steps or mark them complete. The dashboard provides edit and delete actions. Playlist reads and mutations are scoped to the signed-in owner. The prototype's `tracker.db` is not imported automatically.
 
+## Response performance
+
+The pages are small server-rendered HTML; the sign-in page is about 840 bytes, so HTML response structure is not the main latency source. Provider button rendering previously caused avoidable allauth database lookups; the page now links directly to the local allauth routes. Connected-provider lookup is limited to the connections page, and the starter-plan existence check is cached in the signed-in session.
+
+For the Render deployment, place the web service and PostgreSQL database in the same region and use Render's **Internal Database URL** in the web service environment. Use the **External Database URL** only when connecting from your laptop for manual testing; the extra network round-trip makes local requests slower. Warm local measurements after this change were around 1–2 ms TTFB for the sign-in page, but first requests and requests to a remote database can be slower. Measure production after deployment before considering a separate JSON API or frontend rewrite.
+
 ## Test local CRUD against Render PostgreSQL
 
 To make browser actions from your laptop write to the hosted database, set `DATABASE_URL` in your local `.env` to Render's **External Database URL**. Do not use Render's Internal URL from a laptop. Keep the URL private and never commit `.env`.

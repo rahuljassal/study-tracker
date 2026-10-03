@@ -10,10 +10,14 @@ from tracker.forms import AddVideosForm, PlaylistForm
 from tracker.models import Playlist, Video
 from tracker.onboarding import provision_starter_plan
 
+STARTER_PLAN_CHECK_SESSION_KEY = "tracker_starter_plan_checked_for"
+
 
 @login_required
 def dashboard(request):
-    provision_starter_plan(request.user)
+    if request.session.get(STARTER_PLAN_CHECK_SESSION_KEY) != request.user.pk:
+        provision_starter_plan(request.user)
+        request.session[STARTER_PLAN_CHECK_SESSION_KEY] = request.user.pk
     playlists = request.user.playlists.annotate(
         video_count=Count("videos"),
         completed_count=Count(

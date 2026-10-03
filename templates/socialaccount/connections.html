@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load socialaccount %}
 {% block title %}Connected accounts · Study Tracker{% endblock %}
 {% block content %}
 <section class="auth-panel connections-panel">
@@ -33,10 +32,10 @@
     <h2>Add a sign-in method</h2>
     <div class="provider-list">
       {% if google_oauth_configured and "google" not in connected_social_providers %}
-        <a class="provider-button" href="{% provider_login_url 'google' process='connect' %}">Connect Google</a>
+        <a class="provider-button" href="/accounts/google/login/?process=connect">Connect Google</a>
       {% endif %}
       {% if github_oauth_configured and "github" not in connected_social_providers %}
-        <a class="provider-button" href="{% provider_login_url 'github' process='connect' %}">Connect GitHub</a>
+        <a class="provider-button" href="/accounts/github/login/?process=connect">Connect GitHub</a>
       {% endif %}
       {% if not google_oauth_configured and not github_oauth_configured %}
         <p class="setup-note">No social sign-in providers are configured.</p>

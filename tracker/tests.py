@@ -36,6 +36,10 @@ class DashboardAccessTests(TestCase):
         self.assertEqual(starter.name, "My First Learning Plan")
         self.assertEqual(starter.videos.count(), 5)
         self.assertFalse(starter.videos.exclude(url="").exists())
+        self.assertEqual(
+            self.client.session.get("tracker_starter_plan_checked_for"),
+            self.user.pk,
+        )
 
     def test_dashboard_never_lists_another_users_playlist(self):
         other_user = get_user_model().objects.create_user(
@@ -93,6 +97,17 @@ class SocialAccountConnectionPageTests(TestCase):
         self.assertContains(response, "Connected accounts")
         self.assertContains(response, "Connect Google")
         self.assertContains(response, "Connect GitHub")
+        self.assertContains(response, 'href="/accounts/google/login/?process=connect"')
+        self.assertContains(response, 'href="/accounts/github/login/?process=connect"')
+
+
+class LoginProviderLinkTests(TestCase):
+    def test_sign_in_page_uses_direct_allauth_routes(self):
+        response = self.client.get(reverse("account_login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/accounts/google/login/"')
+        self.assertContains(response, 'href="/accounts/github/login/"')
 
 
 class SocialSignupTemplateTests(TestCase):

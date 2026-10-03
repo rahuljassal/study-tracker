@@ -3,7 +3,7 @@
 ## Current checkpoint
 
 - Phase: 3 of 4, security and quality
-- Status: Phase 2 accepted; security checks implemented and automated suite passes; user review of Phase 3 pending
+- Status: Phase 2 accepted; security checks pass; login rendering optimized and measured; Phase 3 user review pending
 - Last updated: 2026-10-03
 
 ## Completed
@@ -31,6 +31,9 @@
 - Added enforced-CSRF, malformed duration/scheme, and HTML autoescaping tests.
 - Added production parsing for `CSRF_TRUSTED_ORIGINS`, a required production `ALLOWED_HOSTS`, one-year HSTS, and a strict referrer policy.
 - Updated README local commands to force SQLite and documented the separate Render manual CRUD path and production security variables.
+- Removed allauth provider-database lookups from sign-in button rendering by using the standard local provider routes; retained `next` redirects.
+- Limited connected-account lookup to the connected-accounts page and cached the starter-plan existence check in the authenticated session.
+- Documented that small HTML payload size was not the bottleneck and that Render services should use same-region PostgreSQL internal networking.
 
 ## Files changed
 
@@ -64,6 +67,9 @@
 - `DATABASE_URL= .venv/bin/python manage.py check`: passed against local SQLite.
 - `DATABASE_URL= .venv/bin/python manage.py test tracker -v 2`: passed, 12 tests, on SQLite; Render PostgreSQL was not used as the test database.
 - `DATABASE_URL= .venv/bin/python manage.py check && DATABASE_URL= .venv/bin/python manage.py test tracker -v 2`: passed; 17 tests, including CSRF enforcement, unsafe input rejection, and HTML escaping.
+- After performance changes, `DATABASE_URL= .venv/bin/python manage.py check && DATABASE_URL= .venv/bin/python manage.py test tracker -v 1`: passed, 18 tests.
+- Login-page query capture changed from 3 queries / 0.869s cumulative DB time to 1 query / 0.268s in the local measurement environment (same URL, permitted Host header; no SQL or credential values recorded).
+- Warm HTTP login response after optimization: 840 bytes; repeated TTFB measurements were 1.64ms and 1.27ms after a slower first request of 1.74s. A subsequent run showed warm TTFB around 1–2ms. This is local development evidence, not a production SLA.
 - `DEBUG=0 SECRET_KEY=<long test placeholder> ALLOWED_HOSTS=tracker.example.com CSRF_TRUSTED_ORIGINS=https://tracker.example.com DATABASE_URL= .venv/bin/python manage.py check --deploy`: completed with only the expected optional HSTS subdomain/preload warnings; real production values must be configured in Render.
 - User-confirmed Google and GitHub OAuth sign-in; linked-provider same-account behavior should be tested from **Connected accounts** if not already done.
 - After registering project-level static files, `.venv/bin/python manage.py check` and `.venv/bin/python manage.py test tracker -v 1` both passed again; login page stylesheet now loads without 404s.
@@ -75,6 +81,7 @@
 ## Known constraints
 
 - Responsive CRUD UI is implemented; browser/device-specific accessibility review remains for the user acceptance pass.
+- First request or local-to-remote PostgreSQL latency may still be noticeable; production app/database region co-location and internal database networking remain deployment tasks.
 - The generic starter plan currently contains editable learning steps without video URLs; tracker workflow work can refine presentation in Phase 2.
 - Existing SQLite data is not imported; `.gitignore` excludes both the prototype `tracker.db` and Django's local `db.sqlite3`.
 - Phase 2 manual CRUD acceptance is complete; Phase 3 automated security and edge-case checks pass.
@@ -86,4 +93,4 @@ Read this file first. Use `.venv/bin/python` (or activate `.venv`) to run the ap
 
 ## Next action
 
-- Next action: user review of Phase 3 behavior and security notes; after acceptance, proceed to Phase 4 deployment configuration.
+- Next action: user review of Phase 3 security and performance changes; after acceptance, proceed to Phase 4 deployment configuration and verify production timings with Render's internal database URL.

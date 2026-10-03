@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load socialaccount %}
 {% block title %}Sign in · Study Tracker{% endblock %}
 {% block content %}
 <section class="auth-panel">
@@ -8,10 +7,10 @@
   <p class="intro">Keep your learning plans and progress together.</p>
   <div class="provider-list">
     {% if google_oauth_configured %}
-      <a class="provider-button" href="{% provider_login_url 'google' %}">Continue with Google</a>
+      <a class="provider-button" href="/accounts/google/login/{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">Continue with Google</a>
     {% endif %}
     {% if github_oauth_configured %}
-      <a class="provider-button" href="{% provider_login_url 'github' %}">Continue with GitHub</a>
+      <a class="provider-button" href="/accounts/github/login/{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}">Continue with GitHub</a>
     {% endif %}
   </div>
   {% if not google_oauth_configured and not github_oauth_configured %}
