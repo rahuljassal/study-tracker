@@ -2,8 +2,8 @@
 
 ## Current checkpoint
 
-- Phase: 1 of 4, foundation and account privacy
-- Status: Phase 1 validated; explicit Google-to-GitHub account linking UI implemented, awaiting user OAuth acceptance
+- Phase: 3 of 4, security and quality
+- Status: Phase 2 accepted; security checks implemented and automated suite passes; user review of Phase 3 pending
 - Last updated: 2026-10-03
 
 ## Completed
@@ -23,6 +23,14 @@
 - Added connected-provider detection so the page offers only providers not already linked.
 - Added tests confirming the connections page requires authentication and displays both configured provider connection actions.
 - Added a separate `socialaccount/signup.html` override for `/accounts/3rdparty/signup/`, with the shared auth styling, provider-aware guidance, and a route back to the existing-account linking flow.
+- Confirmed Django can reach the configured `DATABASE_URL` without exposing its value and applied all Django/allauth/tracker migrations to it.
+- User confirmed Google and GitHub login flows work locally.
+- Added authenticated playlist create/read/update/delete screens, video import and completion actions, paste validation, and owner-scoped CRUD routes.
+- Added CRUD tests for creation, editing, deletion, pasted-video validation, completion toggles, and cross-user denial.
+- User confirmed the CRUD workflow is working against the configured PostgreSQL setup.
+- Added enforced-CSRF, malformed duration/scheme, and HTML autoescaping tests.
+- Added production parsing for `CSRF_TRUSTED_ORIGINS`, a required production `ALLOWED_HOSTS`, one-year HSTS, and a strict referrer policy.
+- Updated README local commands to force SQLite and documented the separate Render manual CRUD path and production security variables.
 
 ## Files changed
 
@@ -33,7 +41,9 @@
 - `templates/` base, login, and dashboard templates
 - `templates/socialaccount/connections.html`
 - `templates/socialaccount/login.html`, `templates/socialaccount/signup.html`
+- `templates/tracker/playlist_form.html`, `templates/tracker/playlist_detail.html`, `templates/tracker/playlist_confirm_delete.html`
 - `static/tracker/app.css`
+- `tracker/forms.py`, `tracker/services.py`
 - `tracker/context_processors.py`, `tracker/tests.py`
 - `README.md`, `IMPLEMENTATION_STATUS.md`
 - `.venv/` (ignored local environment; no environment binaries should be committed)
@@ -48,6 +58,14 @@
 - `.venv/bin/python manage.py showmigrations tracker`: discovered `0001_initial`.
 - `.venv/bin/python manage.py migrate`: passed; tracker schema applied to Django's local `db.sqlite3`.
 - `.venv/bin/python manage.py test tracker -v 1`: passed, 7 tests after adding account-connection and social-signup template coverage.
+- `.venv/bin/python manage.py check --database default`: passed with the configured database URL.
+- `.venv/bin/python manage.py showmigrations tracker`: `0001_initial` is applied to the configured database.
+- `.venv/bin/python manage.py migrate`: applied Django, allauth, and tracker schema to the configured database; it did not import or alter the prototype `tracker.db`.
+- `DATABASE_URL= .venv/bin/python manage.py check`: passed against local SQLite.
+- `DATABASE_URL= .venv/bin/python manage.py test tracker -v 2`: passed, 12 tests, on SQLite; Render PostgreSQL was not used as the test database.
+- `DATABASE_URL= .venv/bin/python manage.py check && DATABASE_URL= .venv/bin/python manage.py test tracker -v 2`: passed; 17 tests, including CSRF enforcement, unsafe input rejection, and HTML escaping.
+- `DEBUG=0 SECRET_KEY=<long test placeholder> ALLOWED_HOSTS=tracker.example.com CSRF_TRUSTED_ORIGINS=https://tracker.example.com DATABASE_URL= .venv/bin/python manage.py check --deploy`: completed with only the expected optional HSTS subdomain/preload warnings; real production values must be configured in Render.
+- User-confirmed Google and GitHub OAuth sign-in; linked-provider same-account behavior should be tested from **Connected accounts** if not already done.
 - After registering project-level static files, `.venv/bin/python manage.py check` and `.venv/bin/python manage.py test tracker -v 1` both passed again; login page stylesheet now loads without 404s.
 - Test execution emits a non-fatal WhiteNoise warning that `staticfiles/` has not yet been collected; run `collectstatic` for production/static deployment.
 - Google OAuth: local callback completed successfully.
@@ -56,16 +74,16 @@
 
 ## Known constraints
 
-- Core playlist CRUD/progress workflows are intentionally deferred to Phase 2.
+- Responsive CRUD UI is implemented; browser/device-specific accessibility review remains for the user acceptance pass.
 - The generic starter plan currently contains editable learning steps without video URLs; tracker workflow work can refine presentation in Phase 2.
 - Existing SQLite data is not imported; `.gitignore` excludes both the prototype `tracker.db` and Django's local `db.sqlite3`.
-- User has not yet completed a GitHub provider connection round-trip. Connect it from the authenticated **Connected accounts** page; then sign out and verify both providers reach the same dashboard/account.
+- Phase 2 manual CRUD acceptance is complete; Phase 3 automated security and edge-case checks pass.
 - The account signup, social provider confirmation, social signup, and connected-accounts routes each use the Study Tracker layout.
 
 ## Resume instruction
 
-Read this file first. Use `.venv/bin/python` (or activate `.venv`) to run the app. Phase 1 code and automated checks are complete; ask the user to test Google OAuth and the dashboard, then pause for feedback. Do not start Phase 2 until the user explicitly asks to continue.
+Read this file first. Use `.venv/bin/python` (or activate `.venv`) to run the app. Phase 1 and Phase 2 are complete and accepted. Phase 3 code and automated checks are ready for user review; run tests with `DATABASE_URL=` so they use SQLite, never the hosted database.
 
 ## Next action
 
-- User acceptance: sign in with Google, open **Connected accounts**, connect GitHub, then sign out and confirm GitHub returns to the same dashboard. Record outcome and ask whether to begin Phase 2.
+- Next action: user review of Phase 3 behavior and security notes; after acceptance, proceed to Phase 4 deployment configuration.

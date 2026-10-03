@@ -7,19 +7,22 @@
     <h1>My learning plans</h1>
     <p class="intro">A quiet place to keep your next learning steps moving.</p>
   </div>
+  <a class="action-link" href="{% url 'playlist_create' %}"><span aria-hidden="true">+</span> New playlist</a>
 </section>
 <section class="plan-list" aria-label="Learning plans">
   {% for playlist in playlists %}
     <article class="plan-row">
-      <div>
-        <h2>{{ playlist.name }}</h2>
-        <p>{{ playlist.videos.count }} steps · starts {{ playlist.start_date|date:"M j, Y" }}</p>
+      <div class="plan-copy">
+        <h2><a href="{% url 'playlist_detail' playlist_id=playlist.pk %}">{{ playlist.name }}</a></h2>
+        <p>{{ playlist.completed_count }}/{{ playlist.video_count }} complete · starts {{ playlist.start_date|date:"M j, Y" }} · {{ playlist.videos_per_day }} per day</p>
       </div>
-      <span class="plan-mark" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
+      <nav class="plan-actions" aria-label="Actions for {{ playlist.name }}">
+        <a href="{% url 'playlist_update' playlist_id=playlist.pk %}">Edit</a>
+        <a href="{% url 'playlist_delete' playlist_id=playlist.pk %}">Delete</a>
+      </nav>
     </article>
   {% empty %}
     <p class="empty-state">No learning plans yet.</p>
   {% endfor %}
 </section>
-<p class="phase-note">Your account and private learning-plan foundation is ready. Playlist editing and progress tracking arrive in the next phase.</p>
 {% endblock %}

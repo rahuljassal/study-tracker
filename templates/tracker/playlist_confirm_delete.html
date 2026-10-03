@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ playlist.name }} · Study Tracker{% endblock %}
+{% block content %}
+<section class="auth-panel delete-panel">
+  <p class="eyebrow">REMOVE LEARNING PLAN</p>
+  <h1>Delete this playlist?</h1>
+  <p class="intro"><strong>{{ playlist.name }}</strong> and its video progress will be permanently deleted.</p>
+  <form class="auth-form" method="post">
+    {% csrf_token %}
+    <button class="provider-button delete-button" type="submit">Delete playlist</button>
+    <a class="quiet-link" href="{% url 'playlist_detail' playlist_id=playlist.pk %}">Keep playlist</a>
+  </form>
+</section>
+{% endblock %}

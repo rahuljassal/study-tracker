@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ playlist.name }} · Study Tracker{% endblock %}
+{% block content %}
+<p class="back-link"><a href="{% url 'dashboard' %}">← All playlists</a></p>
+<section class="detail-heading">
+  <div>
+    <p class="eyebrow">LEARNING PLAN</p>
+    <h1>{{ playlist.name }}</h1>
+    <p class="intro">{{ completed_count }} of {{ video_count }} complete · {{ playlist.videos_per_day }} videos per day · starts {{ playlist.start_date|date:"M j, Y" }}</p>
+  </div>
+  <div class="detail-actions">
+    <a class="quiet-link" href="{% url 'playlist_update' playlist_id=playlist.pk %}">Edit settings</a>
+    <a class="quiet-link danger-link" href="{% url 'playlist_delete' playlist_id=playlist.pk %}">Delete playlist</a>
+  </div>
+</section>
+<section class="video-list" aria-label="Playlist videos">
+  {% for video in videos %}
+    <article class="video-row{% if video.completed_at %} video-done{% endif %}">
+      <form method="post" action="{% url 'video_toggle' playlist_id=playlist.pk video_id=video.pk %}">
+        {% csrf_token %}
+        <button class="completion-button" type="submit" aria-label="{% if video.completed_at %}Mark {{ video.title }} incomplete{% else %}Mark {{ video.title }} complete{% endif %}">{% if video.completed_at %}Done{% else %}Mark done{% endif %}</button>
+      </form>
+      <span class="video-position">{{ forloop.counter|stringformat:"02d" }}</span>
+      <div class="video-copy">
+        {% if video.url %}<a href="{{ video.url }}" target="_blank" rel="noopener noreferrer">{{ video.title }}</a>{% else %}<span>{{ video.title }}</span>{% endif %}
+        <p>{% if video.duration_seconds %}{{ video.duration_seconds }} sec{% else %}Duration not set{% endif %}{% if video.completed_at %} · completed {{ video.completed_at|date:"M j, Y" }}{% endif %}</p>
+      </div>
+    </article>
+  {% empty %}
+    <p class="empty-state">No videos or steps yet. Add entries below.</p>
+  {% endfor %}
+</section>
+<section class="add-videos-panel">
+  <p class="eyebrow">BUILD YOUR PLAN</p>
+  <h2>Add videos or steps</h2>
+  <form class="auth-form" method="post" action="{% url 'playlist_add_videos' playlist_id=playlist.pk %}">
+    {% csrf_token %}
+    {% for field in add_videos_form %}
+      <div class="form-field">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<div class="field-help">{{ field.help_text }}</div>{% endif %}
+        {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+    <button class="provider-button primary-action" type="submit">Add to playlist</button>
+  </form>
+</section>
+{% endblock %}
