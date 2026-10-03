@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Complete sign-up · Study Tracker{% endblock %}
+{% block content %}
+<section class="auth-panel">
+  <p class="eyebrow">YOUR LEARNING, IN ONE PLACE</p>
+  <h1>Finish setting up your account</h1>
+  <p class="intro">You’re signing in with {{ account.get_provider.name }}. Complete these details to create your Study Tracker account.</p>
+  <p class="signup-note">Already have a Study Tracker account? Sign in with the provider you used before, then connect {{ account.get_provider.name }} from <strong>Connected accounts</strong>.</p>
+  <form class="auth-form" method="post" action="{% url 'socialaccount_signup' %}">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-field">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<div class="field-help">{{ field.help_text }}</div>{% endif %}
+        {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+    {% for error in form.non_field_errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    {{ redirect_field }}
+    <button class="provider-button primary-action" type="submit">Create account</button>
+  </form>
+  <p class="auth-switch"><a href="{% url 'account_login' %}">Back to sign in</a></p>
+</section>
+{% endblock %}

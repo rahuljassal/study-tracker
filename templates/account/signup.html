@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}Create account · Study Tracker{% endblock %}
+{% block content %}
+<section class="auth-panel">
+  <p class="eyebrow">YOUR LEARNING, IN ONE PLACE</p>
+  <h1>Create your account</h1>
+  <p class="intro">Set up your personal learning space.</p>
+  <form class="auth-form" method="post" action="{% url 'account_signup' %}">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-field">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<div class="field-help">{{ field.help_text }}</div>{% endif %}
+        {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+    {% for error in form.non_field_errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    {{ redirect_field }}
+    <button class="provider-button primary-action" type="submit">Create account</button>
+  </form>
+  <p class="auth-switch">Already have an account? <a href="{% url 'account_login' %}">Sign in</a></p>
+</section>
+{% endblock %}

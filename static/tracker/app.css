@@ -31,6 +31,8 @@ body {
 .account { display: flex; align-items: center; gap: 18px; color: var(--muted); font: 13px/1.4 "Avenir Next", Avenir, sans-serif; }
 .account form { margin: 0; }
 .text-button { border: 0; padding: 6px 0; color: var(--accent); background: none; font: inherit; cursor: pointer; }
+.text-link { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.text-link:hover { text-decoration: underline; }
 .page { width: min(100% - 40px, 900px); margin: 56px auto 80px; }
 .heading-row { display: flex; justify-content: space-between; align-items: end; margin-bottom: 28px; }
 h1, h2, p { margin-top: 0; }
@@ -47,6 +49,29 @@ h2 { margin: 0 0 5px; font: 600 17px/1.35 "Avenir Next", Avenir, sans-serif; }
 .provider-list { display: grid; gap: 10px; margin-top: 28px; }
 .provider-button { display: block; padding: 12px 16px; border: 1px solid var(--line); color: var(--ink); background: var(--surface); font: 600 14px/1.4 "Avenir Next", Avenir, sans-serif; text-align: center; text-decoration: none; }
 .provider-button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.auth-form { display: grid; gap: 16px; margin-top: 26px; }
+.form-field { display: grid; gap: 7px; }
+.form-field label { color: var(--muted); font: 600 12px/1.4 "Avenir Next", Avenir, sans-serif; }
+.form-field input, .form-field select, .form-field textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 0; color: var(--ink); background: var(--surface); font: 15px/1.4 Georgia, "Iowan Old Style", serif; }
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent-soft); }
+.field-help { color: var(--muted); font-size: 12px; }
+.field-error { margin: 0; color: #a13e35; font: 13px/1.4 "Avenir Next", Avenir, sans-serif; }
+.primary-action { width: 100%; cursor: pointer; }
+.primary-action:not(:disabled) { border-color: var(--accent); color: #fff; background: var(--accent); }
+.primary-action:hover { border-color: #0d5547; background: #0d5547; }
+.auth-switch { margin: 22px 0 0; color: var(--muted); font-size: 13px; text-align: center; }
+.auth-switch a { color: var(--accent); font-family: "Avenir Next", Avenir, sans-serif; font-weight: 600; }
+.signup-note { margin: 22px 0 0; padding: 13px 14px; border-left: 3px solid var(--warm); color: var(--muted); background: var(--paper); font-size: 13px; }
+.connections-panel { width: min(100%, 560px); }
+.connection-list { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.connection-list legend { margin-bottom: 8px; color: var(--muted); font: 600 12px/1.4 "Avenir Next", Avenir, sans-serif; }
+.connection-option { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 12px; border: 1px solid var(--line); font-size: 14px; }
+.connection-option input { accent-color: var(--accent); }
+.connection-provider { margin-left: auto; color: var(--muted); font: 12px/1.4 "Avenir Next", Avenir, sans-serif; }
+.connect-section { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line); }
+.connect-section h2 { margin-bottom: 0; }
+.remove-action { border-color: #d9aaa2; color: #8d352d; background: #fff8f6; }
+.remove-action:hover { border-color: #a13e35; background: #fcebe7; }
 .setup-note { margin: 24px 0 0; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .notice { padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); }
 code { overflow-wrap: anywhere; }
@@ -54,7 +79,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
 
 @media (max-width: 600px) {
   .topbar { padding: 0 18px; }
-  .account { gap: 10px; font-size: 12px; }
+  .account { flex-wrap: wrap; justify-content: end; gap: 8px 12px; font-size: 12px; }
   .page { width: min(100% - 32px, 900px); margin-top: 38px; }
   .auth-panel { margin-top: 24px; padding: 24px; }
 }

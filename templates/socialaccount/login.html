@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}Continue with {{ provider.name }} · Study Tracker{% endblock %}
+{% block content %}
+<section class="auth-panel">
+  <p class="eyebrow">SECURE SIGN IN</p>
+  {% if process == "connect" %}
+    <h1>Connect {{ provider.name }}</h1>
+    <p class="intro">You’re about to connect a {{ provider.name }} account to Study Tracker.</p>
+  {% else %}
+    <h1>Continue with {{ provider.name }}</h1>
+    <p class="intro">Continue securely using your {{ provider.name }} account.</p>
+  {% endif %}
+  <form class="auth-form" method="post">
+    {% csrf_token %}
+    <button class="provider-button primary-action" type="submit">Continue to {{ provider.name }}</button>
+  </form>
+  <p class="auth-switch"><a href="{% url 'account_login' %}">Choose another sign-in method</a></p>
+</section>
+{% endblock %}

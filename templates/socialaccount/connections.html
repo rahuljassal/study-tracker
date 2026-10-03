@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+{% block title %}Connected accounts · Study Tracker{% endblock %}
+{% block content %}
+<section class="auth-panel connections-panel">
+  <p class="eyebrow">ACCOUNT SECURITY</p>
+  <h1>Connected accounts</h1>
+  <p class="intro">Connect another sign-in method to reach this same learning account.</p>
+
+  {% if form.accounts %}
+    <form class="auth-form" method="post" action="{% url 'socialaccount_connections' %}">
+      {% csrf_token %}
+      <fieldset class="connection-list">
+        <legend>Linked sign-in methods</legend>
+        {% for acc in form.fields.account.choices %}
+          {% with account=acc.0.instance.get_provider_account %}
+            <label class="connection-option" for="id_account_{{ account.account.pk }}">
+              <input id="id_account_{{ account.account.pk }}" type="radio" name="account" value="{{ account.account.pk }}">
+              <span>{{ account }}</span>
+              <span class="connection-provider">{{ account.get_brand.name }}</span>
+            </label>
+          {% endwith %}
+        {% endfor %}
+      </fieldset>
+      {% for error in form.account.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      <button class="provider-button remove-action" type="submit">Remove selected sign-in method</button>
+    </form>
+  {% else %}
+    <p class="setup-note">No social accounts are connected yet.</p>
+  {% endif %}
+
+  <div class="connect-section">
+    <h2>Add a sign-in method</h2>
+    <div class="provider-list">
+      {% if google_oauth_configured and "google" not in connected_social_providers %}
+        <a class="provider-button" href="{% provider_login_url 'google' process='connect' %}">Connect Google</a>
+      {% endif %}
+      {% if github_oauth_configured and "github" not in connected_social_providers %}
+        <a class="provider-button" href="{% provider_login_url 'github' process='connect' %}">Connect GitHub</a>
+      {% endif %}
+      {% if not google_oauth_configured and not github_oauth_configured %}
+        <p class="setup-note">No social sign-in providers are configured.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

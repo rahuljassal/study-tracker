@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.template.loader import get_template
 from django.test import TestCase
 from django.urls import reverse
 
@@ -68,3 +69,31 @@ class PlaylistOwnershipModelTests(TestCase):
             list(playlist.videos.values_list("title", flat=True)),
             ["First step", "Second step"],
         )
+
+
+class SocialAccountConnectionPageTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="connections")
+
+    def test_connection_page_requires_authentication(self):
+        response = self.client.get(reverse("socialaccount_connections"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+
+    def test_connection_page_uses_tracker_layout(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("socialaccount_connections"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Connected accounts")
+        self.assertContains(response, "Connect Google")
+        self.assertContains(response, "Connect GitHub")
+
+
+class SocialSignupTemplateTests(TestCase):
+    def test_third_party_signup_uses_project_template(self):
+        template = get_template("socialaccount/signup.html")
+
+        self.assertTrue(template.origin.name.endswith("templates/socialaccount/signup.html"))
