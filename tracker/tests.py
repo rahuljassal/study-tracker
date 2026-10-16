@@ -1,12 +1,21 @@
+from datetime import date, datetime
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import Client, SimpleTestCase
 from django.template.loader import get_template
-from django.test import TestCase
+from django.test import Client, SimpleTestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from tracker.models import Playlist, Video
 from tracker.services import duration_seconds, parse_video_lines
+from tracker.youtube_import import (
+    YouTubeImportError,
+    extract_playlist_id,
+    fetch_youtube_playlist,
+)
 
 
 class DashboardAccessTests(TestCase):
@@ -75,6 +84,90 @@ class PlaylistOwnershipModelTests(TestCase):
         self.assertEqual(
             list(playlist.videos.values_list("title", flat=True)),
             ["First step", "Second step"],
+        )
+
+    def test_estimated_end_date_uses_rounded_up_days_and_includes_start_date(self):
+        user = get_user_model().objects.create_user(username="date-owner")
+        playlist = Playlist.objects.create(
+            owner=user,
+            name="Date estimate",
+            start_date=date(2026, 10, 3),
+            videos_per_day=2,
+        )
+        for position in range(5):
+            Video.objects.create(
+                playlist=playlist,
+                position=position,
+                title=f"Lesson {position + 1}",
+            )
+
+        self.assertEqual(
+            playlist.get_estimated_end_date(as_of=date(2026, 10, 3)),
+            date(2026, 10, 5),
+        )
+
+    def test_empty_playlist_has_no_estimated_end_date(self):
+        user = get_user_model().objects.create_user(username="empty-date-owner")
+        playlist = Playlist.objects.create(
+            owner=user,
+            name="Empty plan",
+            start_date=date(2026, 10, 3),
+            videos_per_day=2,
+        )
+
+        self.assertIsNone(playlist.get_estimated_end_date(as_of=date(2026, 10, 3)))
+
+    def test_estimate_uses_configured_daily_pace_for_remaining_videos(self):
+        user = get_user_model().objects.create_user(username="fast-date-owner")
+        playlist = Playlist.objects.create(
+            owner=user,
+            name="Fast progress",
+            start_date=date(2026, 10, 3),
+            videos_per_day=1,
+        )
+        for position in range(30):
+            Video.objects.create(
+                playlist=playlist,
+                position=position,
+                title=f"Lesson {position + 1}",
+                completed_at=(
+                    timezone.make_aware(datetime(2026, 10, 3, 12))
+                    if position < 2
+                    else None
+                ),
+            )
+
+        self.assertEqual(
+            playlist.get_estimated_end_date(as_of=date(2026, 10, 3)),
+            date(2026, 10, 30),
+        )
+
+        Video.objects.filter(playlist=playlist, position__in=[2, 3]).update(
+            completed_at=timezone.make_aware(datetime(2026, 10, 3, 15))
+        )
+        self.assertEqual(
+            playlist.get_estimated_end_date(as_of=date(2026, 10, 3)),
+            date(2026, 10, 28),
+        )
+
+    def test_estimate_uses_latest_completion_date_when_all_videos_are_done(self):
+        user = get_user_model().objects.create_user(username="finished-date-owner")
+        playlist = Playlist.objects.create(
+            owner=user,
+            name="Finished plan",
+            start_date=date(2026, 10, 3),
+            videos_per_day=2,
+        )
+        Video.objects.create(
+            playlist=playlist,
+            position=0,
+            title="Lesson",
+            completed_at=timezone.make_aware(datetime(2026, 10, 5, 12)),
+        )
+
+        self.assertEqual(
+            playlist.get_estimated_end_date(as_of=date(2026, 10, 6)),
+            date(2026, 10, 5),
         )
 
 
@@ -150,6 +243,78 @@ class PlaylistCrudTests(TestCase):
         self.assertEqual(video.title, "Intro")
         self.assertEqual(video.duration_seconds, 664)
         self.assertEqual(video.url, "https://example.com/intro")
+
+    @patch("tracker.views.fetch_youtube_playlist")
+    def test_create_playlist_from_youtube_url_uses_imported_title_and_videos(
+        self, import_playlist
+    ):
+        import_playlist.return_value = {
+            "name": "Imported course",
+            "videos": [
+                {
+                    "title": "First lesson",
+                    "duration_seconds": 125,
+                    "url": "https://www.youtube.com/watch?v=video123",
+                }
+            ],
+        }
+
+        response = self.client.post(
+            reverse("playlist_create"),
+            {
+                "name": "",
+                "youtube_playlist_url": "https://www.youtube.com/playlist?list=PL123456",
+                "videos_text": "",
+                "start_date": "2026-10-03",
+                "videos_per_day": 2,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        playlist = Playlist.objects.get(owner=self.user, name="Imported course")
+        video = playlist.videos.get()
+        self.assertEqual(video.title, "First lesson")
+        self.assertEqual(video.duration_seconds, 125)
+        self.assertEqual(video.url, "https://www.youtube.com/watch?v=video123")
+
+    @patch("tracker.views.fetch_youtube_playlist")
+    def test_create_form_displays_youtube_import_errors_without_saving(
+        self, import_playlist
+    ):
+        import_playlist.side_effect = YouTubeImportError(
+            "This playlist is private or unavailable."
+        )
+
+        response = self.client.post(
+            reverse("playlist_create"),
+            {
+                "name": "",
+                "youtube_playlist_url": "https://www.youtube.com/playlist?list=PL123456",
+                "videos_text": "",
+                "start_date": "2026-10-03",
+                "videos_per_day": 1,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This playlist is private or unavailable.")
+        self.assertFalse(Playlist.objects.filter(owner=self.user).exists())
+
+    def test_create_form_requires_one_video_source(self):
+        response = self.client.post(
+            reverse("playlist_create"),
+            {
+                "name": "Mixed sources",
+                "youtube_playlist_url": "https://www.youtube.com/playlist?list=PL123456",
+                "videos_text": "Manual | 01:00 | https://example.com/video",
+                "start_date": "2026-10-03",
+                "videos_per_day": 1,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Choose a YouTube playlist URL or pasted videos")
+        self.assertFalse(Playlist.objects.filter(owner=self.user).exists())
 
     def test_create_rejects_non_http_video_url(self):
         response = self.client.post(
@@ -244,6 +409,35 @@ class PlaylistCrudTests(TestCase):
         self.assertContains(response, "&lt;script&gt;alert(1)&lt;/script&gt;")
         self.assertNotContains(response, "<script>alert(1)</script>")
 
+    @patch("django.utils.timezone.localdate", return_value=date(2026, 10, 3))
+    def test_playlist_list_and_detail_show_estimated_end_date(self, _localdate):
+        playlist = self.make_playlist()
+        for position in range(3):
+            Video.objects.create(
+                playlist=playlist,
+                position=position,
+                title=f"Lesson {position + 1}",
+            )
+
+        dashboard = self.client.get(reverse("dashboard"))
+        detail = self.client.get(reverse("playlist_detail", args=[playlist.pk]))
+
+        self.assertContains(dashboard, "estimated end Oct 4, 2026")
+        self.assertContains(detail, "estimated end Oct 4, 2026")
+
+    def test_playlist_detail_shows_video_duration_in_minutes(self):
+        playlist = self.make_playlist()
+        Video.objects.create(
+            playlist=playlist,
+            position=0,
+            title="A timed lesson",
+            duration_seconds=664,
+        )
+
+        response = self.client.get(reverse("playlist_detail", args=[playlist.pk]))
+
+        self.assertContains(response, "11 min 4 sec")
+
 
 class VideoImportValidationTests(SimpleTestCase):
     def test_duration_parser_accepts_supported_formats(self):
@@ -262,6 +456,135 @@ class VideoImportValidationTests(SimpleTestCase):
             parse_video_lines("Lesson | 01:00 | javascript:alert(1)")
         with self.assertRaises(ValidationError):
             parse_video_lines("Lesson | 1:99:00 | https://example.com/video")
+
+
+class YouTubePlaylistImportTests(SimpleTestCase):
+    def test_extract_playlist_id_from_supported_youtube_urls(self):
+        self.assertEqual(
+            extract_playlist_id(
+                "https://www.youtube.com/playlist?list=PLabc_123-xyz"
+            ),
+            "PLabc_123-xyz",
+        )
+        self.assertEqual(
+            extract_playlist_id("https://youtu.be/watch?list=PLabc123"),
+            "PLabc123",
+        )
+
+    def test_rejects_non_youtube_or_non_playlist_urls(self):
+        for url in (
+            "https://example.com/playlist?list=PLabc123",
+            "javascript:alert(1)",
+            "https://www.youtube.com/watch?v=video123",
+        ):
+            with self.subTest(url=url), self.assertRaises(YouTubeImportError):
+                extract_playlist_id(url)
+
+    @override_settings(YOUTUBE_API_KEY="test-key")
+    @patch("tracker.youtube_import._youtube_api_get")
+    def test_fetches_playlist_video_metadata_in_playlist_order(self, api_get):
+        api_get.side_effect = [
+            {"items": [{"snippet": {"title": "Python course"}}]},
+            {
+                "items": [
+                    {
+                        "contentDetails": {"videoId": "video123"},
+                        "snippet": {"title": "Playlist lesson"},
+                    }
+                ]
+            },
+            {
+                "items": [
+                    {
+                        "id": "video123",
+                        "snippet": {"title": "Python lesson"},
+                        "contentDetails": {"duration": "PT1H2M3S"},
+                    }
+                ]
+            },
+        ]
+
+        result = fetch_youtube_playlist(
+            "https://www.youtube.com/playlist?list=PLabc123"
+        )
+
+        self.assertEqual(result["name"], "Python course")
+        self.assertEqual(
+            result["videos"],
+            [
+                {
+                    "title": "Python lesson",
+                    "duration_seconds": 3723,
+                    "url": "https://www.youtube.com/watch?v=video123",
+                }
+            ],
+        )
+
+    @override_settings(YOUTUBE_API_KEY="test-key")
+    @patch("tracker.youtube_import._youtube_api_get")
+    def test_follows_playlist_pagination(self, api_get):
+        first_page = [
+            {
+                "contentDetails": {"videoId": f"video_{index}"},
+                "snippet": {"title": f"Lesson {index}"},
+            }
+            for index in range(50)
+        ]
+        api_get.side_effect = [
+            {"items": [{"snippet": {"title": "Paged course"}}]},
+            {"items": first_page, "nextPageToken": "page-two"},
+            {
+                "items": [
+                    {
+                        "contentDetails": {"videoId": "last_video"},
+                        "snippet": {"title": "Last lesson"},
+                    }
+                ]
+            },
+            {"items": []},
+            {"items": []},
+        ]
+
+        result = fetch_youtube_playlist(
+            "https://www.youtube.com/playlist?list=PLabc123"
+        )
+
+        self.assertEqual(len(result["videos"]), 51)
+        self.assertEqual(result["videos"][-1]["title"], "Last lesson")
+        self.assertEqual(api_get.call_args_list[2].args[1]["pageToken"], "page-two")
+
+    @override_settings(YOUTUBE_API_KEY="test-key")
+    @patch("tracker.youtube_import._youtube_api_get")
+    def test_import_is_capped_at_200_videos(self, api_get):
+        playlist_entries = [
+            {
+                "contentDetails": {"videoId": f"video_{index}"},
+                "snippet": {"title": f"Lesson {index}"},
+            }
+            for index in range(201)
+        ]
+        api_get.side_effect = [
+            {"items": [{"snippet": {"title": "Large course"}}]},
+            {"items": playlist_entries, "nextPageToken": "ignored-after-cap"},
+            {"items": []},
+            {"items": []},
+            {"items": []},
+            {"items": []},
+        ]
+
+        result = fetch_youtube_playlist(
+            "https://www.youtube.com/playlist?list=PLabc123"
+        )
+
+        self.assertEqual(len(result["videos"]), 200)
+        self.assertEqual(api_get.call_count, 6)
+
+    @override_settings(YOUTUBE_API_KEY="")
+    def test_missing_api_key_reports_configuration_error(self):
+        with self.assertRaisesMessage(YouTubeImportError, "YOUTUBE_API_KEY"):
+            fetch_youtube_playlist(
+                "https://www.youtube.com/playlist?list=PLabc123"
+            )
 
 
 class CsrfProtectionTests(TestCase):

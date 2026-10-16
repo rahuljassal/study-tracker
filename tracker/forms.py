@@ -5,10 +5,28 @@ from tracker.services import parse_video_lines
 
 
 class PlaylistForm(forms.ModelForm):
+    youtube_playlist_url = forms.CharField(
+        label="YouTube playlist URL (optional)",
+        required=False,
+        max_length=500,
+        help_text=(
+            "Import up to 200 videos from a public playlist. Leave the playlist "
+            "name blank to use the YouTube playlist title."
+        ),
+        widget=forms.URLInput(
+            attrs={
+                "placeholder": "https://www.youtube.com/playlist?list=...",
+                "spellcheck": "false",
+            }
+        ),
+    )
     videos_text = forms.CharField(
         label="Videos (optional)",
         required=False,
-        help_text="One per line: title | duration | URL. You can also add videos later.",
+        help_text=(
+            "Fallback/manual entry: one per line as title | duration | URL. "
+            "Use either this or a YouTube playlist URL, not both."
+        ),
         widget=forms.Textarea(
             attrs={
                 "rows": 5,
@@ -30,10 +48,30 @@ class PlaylistForm(forms.ModelForm):
 
     def __init__(self, *args, include_videos=True, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["name"].required = False
         self.fields["videos_per_day"].min_value = 1
         self.fields["videos_per_day"].max_value = 100
         if not include_videos:
+            self.fields.pop("youtube_playlist_url")
             self.fields.pop("videos_text")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        youtube_playlist_url = cleaned_data.get("youtube_playlist_url", "").strip()
+        videos_text = cleaned_data.get("videos_text", "")
+        name = cleaned_data.get("name", "").strip()
+
+        if youtube_playlist_url and videos_text:
+            self.add_error(
+                "videos_text",
+                "Choose a YouTube playlist URL or pasted videos, not both.",
+            )
+        if not youtube_playlist_url and not name:
+            self.add_error("name", "Enter a playlist name or provide a YouTube playlist URL.")
+        if youtube_playlist_url and not name:
+            cleaned_data["name"] = "YouTube playlist"
+
+        return cleaned_data
 
     def clean_videos_text(self):
         text = self.cleaned_data.get("videos_text", "")

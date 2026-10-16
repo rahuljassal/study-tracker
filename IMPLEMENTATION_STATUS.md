@@ -2,9 +2,9 @@
 
 ## Current checkpoint
 
-- Phase: 3 of 4, security and quality
-- Status: Phase 2 accepted; security checks pass; login rendering optimized and measured; Phase 3 user review pending
-- Last updated: 2026-10-03
+- Phase: 4 of 4, deployment and final verification
+- Status: Render deployment is active; YouTube playlist importer is implemented and user-confirmed working.
+- Last updated: 2026-10-16
 
 ## Completed
 
@@ -40,6 +40,7 @@
 - `manage.py`, `requirements.txt`, `.env.example`, `.gitignore`
 - `studytracker/` project settings, URL configuration, and WSGI entry point
 - `tracker/` app models, view, onboarding helper, app config, and OAuth context processor
+- `tracker/youtube_import.py` for YouTube Data API playlist metadata import
 - `tracker/migrations/0001_initial.py`, `tracker/tests.py`
 - `templates/` base, login, and dashboard templates
 - `templates/socialaccount/connections.html`
@@ -68,6 +69,12 @@
 - `DATABASE_URL= .venv/bin/python manage.py test tracker -v 2`: passed, 12 tests, on SQLite; Render PostgreSQL was not used as the test database.
 - `DATABASE_URL= .venv/bin/python manage.py check && DATABASE_URL= .venv/bin/python manage.py test tracker -v 2`: passed; 17 tests, including CSRF enforcement, unsafe input rejection, and HTML escaping.
 - After performance changes, `DATABASE_URL= .venv/bin/python manage.py check && DATABASE_URL= .venv/bin/python manage.py test tracker -v 1`: passed, 18 tests.
+- After implementing YouTube import, `DATABASE_URL= .venv/bin/python manage.py check`, `makemigrations --check --dry-run`, and `test tracker -v 1` passed; all 27 tracker tests succeeded.
+- User confirmed that YouTube playlist import is working.
+- After making end-date estimates respond to actual completion pace and displaying video durations in minutes and seconds, Django checks and migration checks passed; all 33 tracker tests succeeded.
+- Updated end-date calculation to use the configured daily pace as the source of truth; it now divides remaining videos by videos per day, without inferring an average pace. Django checks, migration checks, and all 33 tracker tests pass.
+- Added dynamic estimated playlist end dates to the dashboard and playlist detail. Estimates use the configured videos-per-day pace against remaining videos; completed playlists show their last completion date, and empty playlists show no estimate.
+- Displayed video durations in minutes and seconds on the playlist detail page.
 - Login-page query capture changed from 3 queries / 0.869s cumulative DB time to 1 query / 0.268s in the local measurement environment (same URL, permitted Host header; no SQL or credential values recorded).
 - Warm HTTP login response after optimization: 840 bytes; repeated TTFB measurements were 1.64ms and 1.27ms after a slower first request of 1.74s. A subsequent run showed warm TTFB around 1–2ms. This is local development evidence, not a production SLA.
 - `DEBUG=0 SECRET_KEY=<long test placeholder> ALLOWED_HOSTS=tracker.example.com CSRF_TRUSTED_ORIGINS=https://tracker.example.com DATABASE_URL= .venv/bin/python manage.py check --deploy`: completed with only the expected optional HSTS subdomain/preload warnings; real production values must be configured in Render.
@@ -87,10 +94,16 @@
 - Phase 2 manual CRUD acceptance is complete; Phase 3 automated security and edge-case checks pass.
 - The account signup, social provider confirmation, social signup, and connected-accounts routes each use the Study Tracker layout.
 
+## YouTube playlist import
+
+- Implemented a public YouTube playlist URL import using YouTube Data API v3. It imports the playlist title, up to 200 available video titles, durations, and watch URLs; pasted entries remain supported as an alternative.
+- Import errors for invalid, private/unavailable playlists, missing configuration, API quota limits, and network/API failures are shown on the create form without exposing the API key.
+- `YOUTUBE_API_KEY` is configured privately; the user confirmed that playlist import works. Never commit or log the key.
+
 ## Resume instruction
 
-Read this file first. Use `.venv/bin/python` (or activate `.venv`) to run the app. Phase 1 and Phase 2 are complete and accepted. Phase 3 code and automated checks are ready for user review; run tests with `DATABASE_URL=` so they use SQLite, never the hosted database.
+Read this file first. Use `.venv/bin/python` (or activate `.venv`) to run the app. Phase 1 and Phase 2 are complete and accepted; the YouTube playlist importer is implemented and user-confirmed working. Run tests with `DATABASE_URL=` so they use SQLite, never the hosted database.
 
 ## Next action
 
-- Next action: user review of Phase 3 security and performance changes; after acceptance, proceed to Phase 4 deployment configuration and verify production timings with Render's internal database URL.
+- Next action: continue with remaining Phase 4 production checks, including accessibility review and verifying Render production performance.

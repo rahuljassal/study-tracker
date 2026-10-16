@@ -14,7 +14,7 @@
     <article class="plan-row">
       <div class="plan-copy">
         <h2><a href="{% url 'playlist_detail' playlist_id=playlist.pk %}">{{ playlist.name }}</a></h2>
-        <p>{{ playlist.completed_count }}/{{ playlist.video_count }} complete · starts {{ playlist.start_date|date:"M j, Y" }} · {{ playlist.videos_per_day }} per day</p>
+        <p>{{ playlist.completed_count }}/{{ playlist.video_count }} complete · starts {{ playlist.start_date|date:"M j, Y" }} · estimated end {% if playlist.estimated_end_date %}{{ playlist.estimated_end_date|date:"M j, Y" }}{% else %}not set{% endif %} · {{ playlist.videos_per_day }} per day</p>
       </div>
       <nav class="plan-actions" aria-label="Actions for {{ playlist.name }}">
         <a href="{% url 'playlist_update' playlist_id=playlist.pk %}">Edit</a>

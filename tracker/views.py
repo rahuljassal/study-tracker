@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 from tracker.forms import AddVideosForm, PlaylistForm
 from tracker.models import Playlist, Video
 from tracker.onboarding import provision_starter_plan
+from tracker.youtube_import import YouTubeImportError, fetch_youtube_playlist
 
 STARTER_PLAN_CHECK_SESSION_KEY = "tracker_starter_plan_checked_for"
 
@@ -23,6 +24,7 @@ def dashboard(request):
         completed_count=Count(
             "videos", filter=Q(videos__completed_at__isnull=False)
         ),
+        last_completed_at=Max("videos__completed_at"),
     ).order_by("created_at", "id")
     return render(request, "tracker/dashboard.html", {"playlists": playlists})
 
@@ -32,14 +34,39 @@ def playlist_create(request):
     if request.method == "POST":
         form = PlaylistForm(request.POST)
         if form.is_valid():
+            imported_playlist = None
+            youtube_playlist_url = form.cleaned_data.get("youtube_playlist_url", "")
+            if youtube_playlist_url:
+                try:
+                    imported_playlist = fetch_youtube_playlist(youtube_playlist_url)
+                except YouTubeImportError as exc:
+                    form.add_error("youtube_playlist_url", str(exc))
+            if form.errors:
+                return render(
+                    request,
+                    "tracker/playlist_form.html",
+                    {
+                        "form": form,
+                        "page_title": "New playlist",
+                        "submit_label": "Create playlist",
+                    },
+                )
             with transaction.atomic():
                 playlist = form.save(commit=False)
                 playlist.owner = request.user
+                if imported_playlist:
+                    if not request.POST.get("name", "").strip():
+                        playlist.name = imported_playlist["name"]
                 playlist.save()
+                initial_videos = (
+                    imported_playlist["videos"]
+                    if imported_playlist
+                    else form.cleaned_data["videos_text"]
+                )
                 Video.objects.bulk_create(
                     [
                         Video(playlist=playlist, position=index, **video)
-                        for index, video in enumerate(form.cleaned_data["videos_text"])
+                        for index, video in enumerate(initial_videos)
                     ]
                 )
             messages.success(request, "Playlist created.")
@@ -61,6 +88,12 @@ def playlist_detail(request, playlist_id):
     )
     videos = playlist.videos.all()
     completed_count = sum(bool(video.completed_at) for video in videos)
+    playlist.video_count = len(videos)
+    playlist.completed_count = completed_count
+    completed_at_values = [
+        video.completed_at for video in videos if video.completed_at is not None
+    ]
+    playlist.last_completed_at = max(completed_at_values, default=None)
     return render(
         request,
         "tracker/playlist_detail.html",

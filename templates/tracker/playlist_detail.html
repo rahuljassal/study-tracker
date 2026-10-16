@@ -6,7 +6,7 @@
   <div>
     <p class="eyebrow">LEARNING PLAN</p>
     <h1>{{ playlist.name }}</h1>
-    <p class="intro">{{ completed_count }} of {{ video_count }} complete · {{ playlist.videos_per_day }} videos per day · starts {{ playlist.start_date|date:"M j, Y" }}</p>
+    <p class="intro">{{ completed_count }} of {{ video_count }} complete · {{ playlist.videos_per_day }} videos per day · starts {{ playlist.start_date|date:"M j, Y" }} · estimated end {% if playlist.estimated_end_date %}{{ playlist.estimated_end_date|date:"M j, Y" }}{% else %}not set{% endif %}</p>
   </div>
   <div class="detail-actions">
     <a class="quiet-link" href="{% url 'playlist_update' playlist_id=playlist.pk %}">Edit settings</a>
@@ -23,7 +23,7 @@
       <span class="video-position">{{ forloop.counter|stringformat:"02d" }}</span>
       <div class="video-copy">
         {% if video.url %}<a href="{{ video.url }}" target="_blank" rel="noopener noreferrer">{{ video.title }}</a>{% else %}<span>{{ video.title }}</span>{% endif %}
-        <p>{% if video.duration_seconds %}{{ video.duration_seconds }} sec{% else %}Duration not set{% endif %}{% if video.completed_at %} · completed {{ video.completed_at|date:"M j, Y" }}{% endif %}</p>
+        <p>{{ video.duration_display }}{% if video.completed_at %} · completed {{ video.completed_at|date:"M j, Y" }}{% endif %}</p>
       </div>
     </article>
   {% empty %}

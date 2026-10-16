@@ -32,6 +32,12 @@ Restart the development server after changing `.env`. OAuth flows cannot be comp
 
 After signing in, use **New playlist** to create a plan, optionally paste video lines, and open a playlist to add steps or mark them complete. The dashboard provides edit and delete actions. Playlist reads and mutations are scoped to the signed-in owner. The prototype's `tracker.db` is not imported automatically.
 
+The playlist list and detail page show a dynamic estimated end date based on the configured videos-per-day pace and the number of videos still pending. Completing more videos shortens the estimate without changing the configured pace; changing completion status, adding videos, or changing the daily pace updates it. A completed plan shows the date its last video was completed; an empty plan has no estimate. Video durations display in minutes and seconds when available.
+
+To create a playlist from a public YouTube playlist, enter its playlist URL on **New playlist**. Leave the playlist name blank to use YouTube's title; the importer adds up to the first 200 available videos, including their durations and watch URLs. Pasted video lines remain available as an alternative, but cannot be combined with a YouTube URL in the same submission. Private or unavailable playlists cannot be imported.
+
+Enable **YouTube Data API v3** in Google Cloud and set `YOUTUBE_API_KEY` in local `.env` and the Render web service environment. Keep the key private; the server uses it only for API requests. The import form reports missing configuration, quota exhaustion, and unavailable playlists without exposing the key.
+
 ## Response performance
 
 The pages are small server-rendered HTML; the sign-in page is about 840 bytes, so HTML response structure is not the main latency source. Provider button rendering previously caused avoidable allauth database lookups; the page now links directly to the local allauth routes. Connected-provider lookup is limited to the connections page, and the starter-plan existence check is cached in the signed-in session.

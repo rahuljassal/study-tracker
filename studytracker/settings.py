@@ -9,6 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 DEBUG = os.getenv("DEBUG", "0") == "1"
 SECRET_KEY = os.getenv("SECRET_KEY", "local-development-key-change-before-deploy")
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 if not DEBUG and SECRET_KEY == "local-development-key-change-before-deploy":
     raise RuntimeError("Set SECRET_KEY in the production environment.")
 if not DEBUG and not os.getenv("ALLOWED_HOSTS", "").strip():
