@@ -3,8 +3,8 @@
 ## Current checkpoint
 
 - Phase: 4 of 4, deployment and final verification
-- Status: Render deployment is active; YouTube playlist importer is implemented and user-confirmed working.
-- Last updated: 2026-10-16
+- Status: Render deployment is active; YouTube importer is user-confirmed working; progress enhancements and drag-and-drop ordering are implemented locally and validated.
+- Last updated: 2026-10-18
 
 ## Completed
 
@@ -71,10 +71,21 @@
 - After performance changes, `DATABASE_URL= .venv/bin/python manage.py check && DATABASE_URL= .venv/bin/python manage.py test tracker -v 1`: passed, 18 tests.
 - After implementing YouTube import, `DATABASE_URL= .venv/bin/python manage.py check`, `makemigrations --check --dry-run`, and `test tracker -v 1` passed; all 27 tracker tests succeeded.
 - User confirmed that YouTube playlist import is working.
-- After making end-date estimates respond to actual completion pace and displaying video durations in minutes and seconds, Django checks and migration checks passed; all 33 tracker tests succeeded.
+- After adding dynamic end-date estimates and displaying video durations in minutes and seconds, Django checks and migration checks passed; all 33 tracker tests succeeded.
 - Updated end-date calculation to use the configured daily pace as the source of truth; it now divides remaining videos by videos per day, without inferring an average pace. Django checks, migration checks, and all 33 tracker tests pass.
+- Latest validation after today-progress, video-management, and dashboard-progress enhancements: Django system check and migration check passed; all 44 tracker tests passed.
+- After drag-and-drop reorder implementation, JavaScript syntax check, Django system/migration checks, and all 44 tracker tests passed.
 - Added dynamic estimated playlist end dates to the dashboard and playlist detail. Estimates use the configured videos-per-day pace against remaining videos; completed playlists show their last completion date, and empty playlists show no estimate.
 - Displayed video durations in minutes and seconds on the playlist detail page.
+- Added today’s planned/done/remaining progress summary and dashboard completion bars with remaining-video counts.
+- Today’s schedule assigns videos in playlist order by start date and configured videos-per-day; playlist videos can be reordered by dragging and dropping.
+- Replaced video up/down ordering buttons with a drag handle that persists the full order via a CSRF-protected, owner-scoped JSON endpoint.
+- Removed per-video edit/delete controls and endpoints at the user's request; playlist-level edit/delete actions remain.
+- Added a dashboard-wide overall progress pie chart that aggregates completed and remaining videos across the signed-in user's playlists.
+- Added an individual playlist progress pie chart on each playlist detail page, including zero-video handling.
+- Dashboard and playlist charts use inline SVG rendering with accessible progress labels.
+- Dashboard system and migration checks passed; all 45 tracker tests passed after adding playlist-specific progress coverage.
+- End-date estimates use configured daily pace and remaining videos, not observed average pace.
 - Login-page query capture changed from 3 queries / 0.869s cumulative DB time to 1 query / 0.268s in the local measurement environment (same URL, permitted Host header; no SQL or credential values recorded).
 - Warm HTTP login response after optimization: 840 bytes; repeated TTFB measurements were 1.64ms and 1.27ms after a slower first request of 1.74s. A subsequent run showed warm TTFB around 1–2ms. This is local development evidence, not a production SLA.
 - `DEBUG=0 SECRET_KEY=<long test placeholder> ALLOWED_HOSTS=tracker.example.com CSRF_TRUSTED_ORIGINS=https://tracker.example.com DATABASE_URL= .venv/bin/python manage.py check --deploy`: completed with only the expected optional HSTS subdomain/preload warnings; real production values must be configured in Render.
@@ -106,4 +117,4 @@ Read this file first. Use `.venv/bin/python` (or activate `.venv`) to run the ap
 
 ## Next action
 
-- Next action: continue with remaining Phase 4 production checks, including accessibility review and verifying Render production performance.
+- Next action: deploy the latest local enhancements to Render, verify drag-and-drop and other new controls in production, and complete the pending accessibility review.

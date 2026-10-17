@@ -32,6 +32,36 @@ class Playlist(models.Model):
     def estimated_end_date(self):
         return self.get_estimated_end_date()
 
+    def get_daily_progress(self, as_of=None):
+        as_of = as_of or timezone.localdate()
+        prefetched_videos = getattr(
+            self, "_prefetched_objects_cache", {}
+        ).get("videos")
+        videos = (
+            list(prefetched_videos)
+            if prefetched_videos is not None
+            else list(self.videos.all())
+        )
+
+        if as_of < self.start_date or not self.videos_per_day:
+            planned_videos = []
+        else:
+            day_index = (as_of - self.start_date).days
+            first_position = day_index * self.videos_per_day
+            planned_videos = videos[
+                first_position : first_position + self.videos_per_day
+            ]
+
+        planned_count = len(planned_videos)
+        completed_count = sum(
+            video.completed_at is not None for video in planned_videos
+        )
+        return {
+            "planned_count": planned_count,
+            "completed_count": completed_count,
+            "remaining_count": planned_count - completed_count,
+        }
+
     def get_estimated_end_date(self, as_of=None):
         as_of = as_of or timezone.localdate()
         video_count = getattr(self, "video_count", None)

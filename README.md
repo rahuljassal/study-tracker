@@ -34,6 +34,12 @@ After signing in, use **New playlist** to create a plan, optionally paste video 
 
 The playlist list and detail page show a dynamic estimated end date based on the configured videos-per-day pace and the number of videos still pending. Completing more videos shortens the estimate without changing the configured pace; changing completion status, adding videos, or changing the daily pace updates it. A completed plan shows the date its last video was completed; an empty plan has no estimate. Video durations display in minutes and seconds when available.
 
+The dashboard and playlist detail also show today's scheduled videos, how many of those are complete, and how many remain. Videos are scheduled in playlist order, in daily batches based on the playlist start date and videos-per-day setting. The dashboard also shows an accessible completion progress bar and the remaining-video count for each playlist.
+
+At the top of the dashboard, an overall pie-style chart aggregates completed and remaining videos across all of the signed-in user's playlists.
+
+On a playlist detail page, videos can be marked complete and dragged by their handle to change their schedule order. To change playlist contents, update playlist settings or add videos.
+
 To create a playlist from a public YouTube playlist, enter its playlist URL on **New playlist**. Leave the playlist name blank to use YouTube's title; the importer adds up to the first 200 available videos, including their durations and watch URLs. Pasted video lines remain available as an alternative, but cannot be combined with a YouTube URL in the same submission. Private or unavailable playlists cannot be imported.
 
 Enable **YouTube Data API v3** in Google Cloud and set `YOUTUBE_API_KEY` in local `.env` and the Render web service environment. Keep the key private; the server uses it only for API requests. The import form reports missing configuration, quota exhaustion, and unavailable playlists without exposing the key.

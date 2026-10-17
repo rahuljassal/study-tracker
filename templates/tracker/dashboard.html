@@ -9,12 +9,63 @@
   </div>
   <a class="action-link" href="{% url 'playlist_create' %}"><span aria-hidden="true">+</span> New playlist</a>
 </section>
+<section class="progress-chart-panel" aria-labelledby="global-progress-title">
+  <div>
+    <p class="eyebrow">ALL PLAYLISTS</p>
+    <h2 id="global-progress-title">Overall progress</h2>
+    {% if global_progress.total_count %}
+      <p class="global-progress-summary">{{ global_progress.completed_count }} of {{ global_progress.total_count }} videos complete · {{ global_progress.remaining_count }} remaining</p>
+      <div class="global-progress-legend">
+        <span><i class="legend-swatch completed-swatch" aria-hidden="true"></i>{{ global_progress.completed_count }} complete</span>
+        <span><i class="legend-swatch remaining-swatch" aria-hidden="true"></i>{{ global_progress.remaining_count }} remaining</span>
+      </div>
+    {% else %}
+      <p class="global-progress-summary">No videos tracked yet. Add videos to see overall progress.</p>
+    {% endif %}
+  </div>
+  <svg
+    class="global-progress-chart"
+    role="img"
+    aria-label="Overall progress: {{ global_progress.completed_count }} of {{ global_progress.total_count }} videos complete, {{ global_progress.remaining_count }} remaining, {{ global_progress.percent }} percent complete"
+    viewBox="0 0 120 120"
+    width="132"
+    height="132"
+    style="display:block;width:132px;height:132px;max-width:100%;flex:none"
+  >
+    <circle cx="60" cy="60" r="48" fill="none" stroke="#dce2dc" stroke-width="12"></circle>
+    <circle
+      cx="60"
+      cy="60"
+      r="48"
+      fill="none"
+      stroke="#126b59"
+      stroke-width="12"
+      pathLength="100"
+      stroke-dasharray="{{ global_progress.percent }} 100"
+      transform="rotate(-90 60 60)"
+    ></circle>
+    <text x="60" y="66" text-anchor="middle" fill="#202a27" font-family="Arial, sans-serif" font-size="20" font-weight="700">{{ global_progress.percent }}%</text>
+  </svg>
+</section>
 <section class="plan-list" aria-label="Learning plans">
   {% for playlist in playlists %}
     <article class="plan-row">
       <div class="plan-copy">
         <h2><a href="{% url 'playlist_detail' playlist_id=playlist.pk %}">{{ playlist.name }}</a></h2>
         <p>{{ playlist.completed_count }}/{{ playlist.video_count }} complete · starts {{ playlist.start_date|date:"M j, Y" }} · estimated end {% if playlist.estimated_end_date %}{{ playlist.estimated_end_date|date:"M j, Y" }}{% else %}not set{% endif %} · {{ playlist.videos_per_day }} per day</p>
+        {% if playlist.video_count %}
+          <div class="plan-progress">
+            <progress value="{{ playlist.completed_count }}" max="{{ playlist.video_count }}" aria-label="{{ playlist.name }} completion progress"></progress>
+            <span>{{ playlist.remaining_count }} remaining</span>
+          </div>
+        {% else %}
+          <p class="progress-empty">Add videos to see progress.</p>
+        {% endif %}
+        {% if playlist.start_date > today %}
+          <p>Daily plan starts {{ playlist.start_date|date:"M j, Y" }}.</p>
+        {% else %}
+          <p>Today: {{ playlist.today_progress.completed_count }}/{{ playlist.today_progress.planned_count }} planned videos done · {{ playlist.today_progress.remaining_count }} remaining</p>
+        {% endif %}
       </div>
       <nav class="plan-actions" aria-label="Actions for {{ playlist.name }}">
         <a href="{% url 'playlist_update' playlist_id=playlist.pk %}">Edit</a>

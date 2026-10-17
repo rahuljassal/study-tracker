@@ -9,6 +9,7 @@ from tracker.views import (
     playlist_detail,
     playlist_update,
     video_toggle,
+    video_reorder,
 )
 
 
@@ -21,5 +22,6 @@ urlpatterns = [
     path("playlists/<int:playlist_id>/edit/", playlist_update, name="playlist_update"),
     path("playlists/<int:playlist_id>/delete/", playlist_delete, name="playlist_delete"),
     path("playlists/<int:playlist_id>/videos/add/", playlist_add_videos, name="playlist_add_videos"),
+    path("playlists/<int:playlist_id>/videos/reorder/", video_reorder, name="video_reorder"),
     path("playlists/<int:playlist_id>/videos/<int:video_id>/toggle/", video_toggle, name="video_toggle"),
 ]

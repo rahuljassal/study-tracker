@@ -1,7 +1,10 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, Max, Q
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -19,14 +22,41 @@ def dashboard(request):
     if request.session.get(STARTER_PLAN_CHECK_SESSION_KEY) != request.user.pk:
         provision_starter_plan(request.user)
         request.session[STARTER_PLAN_CHECK_SESSION_KEY] = request.user.pk
-    playlists = request.user.playlists.annotate(
+    playlists = list(request.user.playlists.annotate(
         video_count=Count("videos"),
         completed_count=Count(
             "videos", filter=Q(videos__completed_at__isnull=False)
         ),
         last_completed_at=Max("videos__completed_at"),
-    ).order_by("created_at", "id")
-    return render(request, "tracker/dashboard.html", {"playlists": playlists})
+    ).prefetch_related("videos").order_by("created_at", "id"))
+    today = timezone.localdate()
+    for playlist in playlists:
+        playlist.today_progress = playlist.get_daily_progress(as_of=today)
+        playlist.remaining_count = playlist.video_count - playlist.completed_count
+    total_video_count = sum(playlist.video_count for playlist in playlists)
+    completed_video_count = sum(
+        playlist.completed_count for playlist in playlists
+    )
+    remaining_video_count = total_video_count - completed_video_count
+    completion_percent = (
+        round(completed_video_count * 100 / total_video_count)
+        if total_video_count
+        else 0
+    )
+    return render(
+        request,
+        "tracker/dashboard.html",
+        {
+            "playlists": playlists,
+            "today": today,
+            "global_progress": {
+                "total_count": total_video_count,
+                "completed_count": completed_video_count,
+                "remaining_count": remaining_video_count,
+                "percent": completion_percent,
+            },
+        },
+    )
 
 
 @login_required
@@ -87,13 +117,20 @@ def playlist_detail(request, playlist_id):
         pk=playlist_id,
     )
     videos = playlist.videos.all()
+    video_count = len(videos)
     completed_count = sum(bool(video.completed_at) for video in videos)
-    playlist.video_count = len(videos)
+    today = timezone.localdate()
+    playlist.video_count = video_count
     playlist.completed_count = completed_count
     completed_at_values = [
         video.completed_at for video in videos if video.completed_at is not None
     ]
     playlist.last_completed_at = max(completed_at_values, default=None)
+    playlist.today_progress = playlist.get_daily_progress(as_of=today)
+    playlist.remaining_count = video_count - completed_count
+    completion_percent = (
+        round(completed_count * 100 / video_count) if video_count else 0
+    )
     return render(
         request,
         "tracker/playlist_detail.html",
@@ -101,7 +138,9 @@ def playlist_detail(request, playlist_id):
             "playlist": playlist,
             "videos": videos,
             "completed_count": completed_count,
-            "video_count": len(videos),
+            "video_count": video_count,
+            "completion_percent": completion_percent,
+            "today": today,
             "add_videos_form": AddVideosForm(),
         },
     )
@@ -167,3 +206,43 @@ def video_toggle(request, playlist_id, video_id):
     video.completed_at = None if video.completed_at else timezone.now()
     video.save(update_fields=["completed_at"])
     return redirect("playlist_detail", playlist_id=playlist_id)
+
+
+@login_required
+@require_POST
+def video_reorder(request, playlist_id):
+    try:
+        payload = json.loads(request.body)
+        submitted_ids = payload["video_ids"]
+        if (
+            not isinstance(submitted_ids, list)
+            or any(type(video_id) is not int for video_id in submitted_ids)
+            or len(submitted_ids) != len(set(submitted_ids))
+        ):
+            raise ValueError
+    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, TypeError, ValueError):
+        return JsonResponse({"error": "Invalid playlist order."}, status=400)
+
+    with transaction.atomic():
+        playlist = get_object_or_404(
+            Playlist.objects.select_for_update(), pk=playlist_id, owner=request.user
+        )
+        videos = list(
+            Video.objects.select_for_update()
+            .filter(playlist=playlist)
+            .order_by("position", "pk")
+        )
+        videos_by_id = {video.pk: video for video in videos}
+        if len(submitted_ids) != len(videos) or set(submitted_ids) != set(videos_by_id):
+            return JsonResponse({"error": "Playlist contents have changed. Reload and try again."}, status=409)
+
+        ordered_videos = [videos_by_id[video_id] for video_id in submitted_ids]
+        temporary_start = max((video.position for video in videos), default=-1) + len(videos) + 1
+        for index, video in enumerate(ordered_videos):
+            video.position = temporary_start + index
+        Video.objects.bulk_update(ordered_videos, ["position"])
+        for index, video in enumerate(ordered_videos):
+            video.position = index
+        Video.objects.bulk_update(ordered_videos, ["position"])
+
+    return JsonResponse({"ok": True})

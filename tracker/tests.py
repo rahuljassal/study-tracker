@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import json
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -116,6 +117,48 @@ class PlaylistOwnershipModelTests(TestCase):
         )
 
         self.assertIsNone(playlist.get_estimated_end_date(as_of=date(2026, 10, 3)))
+
+    def test_daily_progress_counts_the_scheduled_videos_for_the_date(self):
+        user = get_user_model().objects.create_user(username="daily-progress")
+        playlist = Playlist.objects.create(
+            owner=user,
+            name="Daily progress",
+            start_date=date(2026, 10, 3),
+            videos_per_day=2,
+        )
+        for position in range(5):
+            Video.objects.create(
+                playlist=playlist,
+                position=position,
+                title=f"Lesson {position + 1}",
+                completed_at=(
+                    timezone.make_aware(datetime(2026, 10, 4, 12))
+                    if position == 2
+                    else None
+                ),
+            )
+
+        progress = playlist.get_daily_progress(as_of=date(2026, 10, 4))
+
+        self.assertEqual(
+            progress,
+            {"planned_count": 2, "completed_count": 1, "remaining_count": 1},
+        )
+
+    def test_daily_progress_is_zero_before_start_date(self):
+        user = get_user_model().objects.create_user(username="future-progress")
+        playlist = Playlist.objects.create(
+            owner=user,
+            name="Future plan",
+            start_date=date(2026, 10, 4),
+            videos_per_day=2,
+        )
+        Video.objects.create(playlist=playlist, position=0, title="Lesson")
+
+        self.assertEqual(
+            playlist.get_daily_progress(as_of=date(2026, 10, 3)),
+            {"planned_count": 0, "completed_count": 0, "remaining_count": 0},
+        )
 
     def test_estimate_uses_configured_daily_pace_for_remaining_videos(self):
         user = get_user_model().objects.create_user(username="fast-date-owner")
@@ -375,6 +418,120 @@ class PlaylistCrudTests(TestCase):
         first.refresh_from_db()
         self.assertIsNone(first.completed_at)
 
+    def test_reorder_videos_saves_submitted_order(self):
+        playlist = self.make_playlist()
+        videos = [
+            Video.objects.create(
+                playlist=playlist,
+                position=position,
+                title=f"Lesson {position + 1}",
+            )
+            for position in range(3)
+        ]
+
+        response = self.client.post(
+            reverse("video_reorder", args=[playlist.pk]),
+            data=json.dumps({"video_ids": [videos[0].pk, videos[2].pk, videos[1].pk]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True})
+        self.assertEqual(
+            list(playlist.videos.values_list("title", flat=True)),
+            ["Lesson 1", "Lesson 3", "Lesson 2"],
+        )
+        self.assertEqual(
+            list(playlist.videos.values_list("position", flat=True)),
+            [0, 1, 2],
+        )
+
+    def test_reorder_rejects_missing_or_duplicate_video_ids_without_changes(self):
+        playlist = self.make_playlist()
+        first = Video.objects.create(playlist=playlist, position=0, title="First")
+        second = Video.objects.create(playlist=playlist, position=1, title="Second")
+
+        response = self.client.post(
+            reverse("video_reorder", args=[playlist.pk]),
+            data=json.dumps({"video_ids": [first.pk]}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 409)
+        response = self.client.post(
+            reverse("video_reorder", args=[playlist.pk]),
+            data=json.dumps({"video_ids": [first.pk, first.pk]}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+        self.assertEqual(
+            list(playlist.videos.values_list("title", flat=True)),
+            ["First", "Second"],
+        )
+        self.assertEqual([first.position, second.position], [0, 1])
+
+    def test_video_management_is_scoped_to_playlist_owner(self):
+        other_user = get_user_model().objects.create_user(username="video-owner")
+        playlist = self.make_playlist(owner=other_user)
+        video = Video.objects.create(playlist=playlist, position=0, title="Private")
+
+        reorder = self.client.post(
+            reverse("video_reorder", args=[playlist.pk]),
+            data=json.dumps({"video_ids": [video.pk]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(reorder.status_code, 404)
+        self.assertTrue(Video.objects.filter(pk=video.pk).exists())
+
+    def test_playlist_detail_exposes_drag_reorder_only(self):
+        playlist = self.make_playlist()
+        Video.objects.create(playlist=playlist, position=0, title="First")
+
+        response = self.client.get(reverse("playlist_detail", args=[playlist.pk]))
+
+        self.assertContains(
+            response, reverse("video_reorder", args=[playlist.pk])
+        )
+        self.assertContains(response, "Drag a video using its handle")
+        self.assertNotContains(response, "Edit First")
+        self.assertNotContains(response, "Delete First")
+
+    def test_playlist_detail_shows_playlist_progress_chart(self):
+        playlist = self.make_playlist()
+        for position in range(4):
+            Video.objects.create(
+                playlist=playlist,
+                position=position,
+                title=f"Lesson {position + 1}",
+                completed_at=(
+                    timezone.make_aware(datetime(2026, 10, 3, 12))
+                    if position == 0
+                    else None
+                ),
+            )
+
+        response = self.client.get(reverse("playlist_detail", args=[playlist.pk]))
+
+        self.assertEqual(response.context["completion_percent"], 25)
+        self.assertContains(response, "1 of 4 videos complete")
+        self.assertContains(response, "3 remaining")
+        self.assertContains(
+            response,
+            'aria-label="Playlist progress: 1 of 4 videos complete, 3 remaining, 25 percent complete"',
+            html=False,
+        )
+        self.assertContains(response, 'stroke-dasharray="25 100"', html=False)
+
+    def test_playlist_detail_progress_chart_handles_empty_playlist(self):
+        playlist = self.make_playlist()
+
+        response = self.client.get(reverse("playlist_detail", args=[playlist.pk]))
+
+        self.assertEqual(response.context["completion_percent"], 0)
+        self.assertContains(response, "No videos tracked yet")
+        self.assertContains(response, 'stroke-dasharray="0 100"', html=False)
+
     def test_other_user_cannot_read_edit_delete_or_mutate_playlist(self):
         other_user = get_user_model().objects.create_user(username="another-user")
         playlist = self.make_playlist(owner=other_user)
@@ -390,9 +547,21 @@ class PlaylistCrudTests(TestCase):
         toggle = self.client.post(
             reverse("video_toggle", args=[playlist.pk, video.pk])
         )
+        reorder_videos = self.client.post(
+            reverse("video_reorder", args=[playlist.pk]),
+            data=json.dumps({"video_ids": [video.pk]}),
+            content_type="application/json",
+        )
 
         self.assertEqual([detail.status_code, edit.status_code, delete.status_code], [404, 404, 404])
-        self.assertEqual([add_video.status_code, toggle.status_code], [404, 404])
+        self.assertEqual(
+            [
+                add_video.status_code,
+                toggle.status_code,
+                reorder_videos.status_code,
+            ],
+            [404, 404, 404],
+        )
         self.assertEqual(playlist.videos.count(), 1)
         self.assertIsNone(video.completed_at)
 
@@ -424,6 +593,112 @@ class PlaylistCrudTests(TestCase):
 
         self.assertContains(dashboard, "estimated end Oct 4, 2026")
         self.assertContains(detail, "estimated end Oct 4, 2026")
+        self.assertContains(dashboard, "Today: 0/2 planned videos done · 2 remaining")
+        self.assertContains(detail, "Today: 0/2 planned videos done · 2 remaining")
+
+    @patch("django.utils.timezone.localdate", return_value=date(2026, 10, 3))
+    def test_dashboard_shows_progress_bar_and_remaining_count(self, _localdate):
+        playlist = self.make_playlist()
+        for position in range(4):
+            Video.objects.create(
+                playlist=playlist,
+                position=position,
+                title=f"Lesson {position + 1}",
+                completed_at=(
+                    timezone.make_aware(datetime(2026, 10, 3, 12))
+                    if position == 0
+                    else None
+                ),
+            )
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, 'value="1" max="4"')
+        self.assertContains(response, "3 remaining")
+        self.assertContains(response, 'aria-label="Study plan completion progress"')
+
+    def test_dashboard_global_progress_aggregates_all_playlists(self):
+        session = self.client.session
+        session["tracker_starter_plan_checked_for"] = self.user.pk
+        session.save()
+        first_playlist = self.make_playlist()
+        second_playlist = Playlist.objects.create(
+            owner=self.user,
+            name="Second study plan",
+            start_date="2026-10-03",
+            videos_per_day=1,
+        )
+        for position in range(3):
+            Video.objects.create(
+                playlist=first_playlist,
+                position=position,
+                title=f"First plan {position + 1}",
+                completed_at=(
+                    timezone.make_aware(datetime(2026, 10, 3, 12))
+                    if position == 0
+                    else None
+                ),
+            )
+        for position in range(2):
+            Video.objects.create(
+                playlist=second_playlist,
+                position=position,
+                title=f"Second plan {position + 1}",
+                completed_at=(
+                    timezone.make_aware(datetime(2026, 10, 3, 12))
+                    if position == 1
+                    else None
+                ),
+            )
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(
+            response.context["global_progress"],
+            {
+                "total_count": 5,
+                "completed_count": 2,
+                "remaining_count": 3,
+                "percent": 40,
+            },
+        )
+        self.assertContains(response, "2 of 5 videos complete")
+        self.assertContains(response, "3 remaining")
+        self.assertContains(response, "Overall progress: 2 of 5 videos complete")
+        self.assertContains(response, 'class="global-progress-chart"', html=False)
+        self.assertContains(response, 'stroke-dasharray="40 100"', html=False)
+        self.assertContains(response, "40%")
+
+    def test_dashboard_global_progress_handles_no_videos(self):
+        playlist = self.make_playlist()
+        session = self.client.session
+        session["tracker_starter_plan_checked_for"] = self.user.pk
+        session.save()
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(
+            response.context["global_progress"],
+            {
+                "total_count": 0,
+                "completed_count": 0,
+                "remaining_count": 0,
+                "percent": 0,
+            },
+        )
+        self.assertContains(response, "No videos tracked yet")
+        self.assertContains(response, 'stroke-dasharray="0 100"', html=False)
+
+    def test_empty_playlist_has_no_progress_bar(self):
+        playlist = self.make_playlist()
+        session = self.client.session
+        session["tracker_starter_plan_checked_for"] = self.user.pk
+        session.save()
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertNotContains(response, "<progress")
+        self.assertContains(response, "Add videos to see progress.")
 
     def test_playlist_detail_shows_video_duration_in_minutes(self):
         playlist = self.make_playlist()
@@ -620,6 +895,9 @@ class CsrfProtectionTests(TestCase):
                 "videos_text": "New | NA | https://example.com/new",
             }),
             ("post", reverse("video_toggle", args=[self.playlist.pk, self.video.pk]), {}),
+            ("post", reverse("video_reorder", args=[self.playlist.pk]), {
+                "video_ids": json.dumps([self.video.pk]),
+            }),
         ]
 
         for method, url, data in requests:

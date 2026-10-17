@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ playlist.name }} · Study Tracker{% endblock %}
 {% block content %}
 <p class="back-link"><a href="{% url 'dashboard' %}">← All playlists</a></p>
@@ -7,15 +8,61 @@
     <p class="eyebrow">LEARNING PLAN</p>
     <h1>{{ playlist.name }}</h1>
     <p class="intro">{{ completed_count }} of {{ video_count }} complete · {{ playlist.videos_per_day }} videos per day · starts {{ playlist.start_date|date:"M j, Y" }} · estimated end {% if playlist.estimated_end_date %}{{ playlist.estimated_end_date|date:"M j, Y" }}{% else %}not set{% endif %}</p>
+    {% if playlist.start_date > today %}
+      <p class="intro">Daily plan starts {{ playlist.start_date|date:"M j, Y" }}.</p>
+    {% else %}
+      <p class="intro">Today: {{ playlist.today_progress.completed_count }}/{{ playlist.today_progress.planned_count }} planned videos done · {{ playlist.today_progress.remaining_count }} remaining</p>
+    {% endif %}
   </div>
   <div class="detail-actions">
     <a class="quiet-link" href="{% url 'playlist_update' playlist_id=playlist.pk %}">Edit settings</a>
     <a class="quiet-link danger-link" href="{% url 'playlist_delete' playlist_id=playlist.pk %}">Delete playlist</a>
   </div>
 </section>
-<section class="video-list" aria-label="Playlist videos">
+<section class="progress-chart-panel" aria-labelledby="playlist-progress-title">
+  <div>
+    <p class="eyebrow">PLAYLIST PROGRESS</p>
+    <h2 id="playlist-progress-title">Playlist progress</h2>
+    {% if video_count %}
+      <p class="global-progress-summary">{{ completed_count }} of {{ video_count }} videos complete · {{ playlist.remaining_count }} remaining</p>
+      <div class="global-progress-legend">
+        <span><i class="legend-swatch completed-swatch" aria-hidden="true"></i>{{ completed_count }} complete</span>
+        <span><i class="legend-swatch remaining-swatch" aria-hidden="true"></i>{{ playlist.remaining_count }} remaining</span>
+      </div>
+    {% else %}
+      <p class="global-progress-summary">No videos tracked yet</p>
+    {% endif %}
+  </div>
+  <svg
+    class="global-progress-chart"
+    role="img"
+    aria-label="Playlist progress: {{ completed_count }} of {{ video_count }} videos complete, {{ playlist.remaining_count }} remaining, {{ completion_percent }} percent complete"
+    viewBox="0 0 120 120"
+    width="132"
+    height="132"
+    style="display:block;width:132px;height:132px;max-width:100%;flex:none"
+  >
+    <circle cx="60" cy="60" r="48" fill="none" stroke="#dce2dc" stroke-width="12"></circle>
+    <circle
+      cx="60"
+      cy="60"
+      r="48"
+      fill="none"
+      stroke="#126b59"
+      stroke-width="12"
+      pathLength="100"
+      stroke-dasharray="{{ completion_percent }} 100"
+      transform="rotate(-90 60 60)"
+    ></circle>
+    <text x="60" y="66" text-anchor="middle" fill="#202a27" font-family="Arial, sans-serif" font-size="20" font-weight="700">{{ completion_percent }}%</text>
+  </svg>
+</section>
+<section class="video-list" aria-label="Playlist videos" data-reorder-url="{% url 'video_reorder' playlist_id=playlist.pk %}">
+  <p class="field-help" id="reorder-instructions">Drag a video using its handle to change the playlist order.</p>
+  <p class="field-help" id="reorder-status" aria-live="polite"></p>
   {% for video in videos %}
-    <article class="video-row{% if video.completed_at %} video-done{% endif %}">
+    <article class="video-row{% if video.completed_at %} video-done{% endif %}" data-video-id="{{ video.pk }}">
+      <button class="drag-handle" type="button" draggable="true" aria-label="Drag to reorder {{ video.title }}" aria-describedby="reorder-instructions" title="Drag to reorder">⠿</button>
       <form method="post" action="{% url 'video_toggle' playlist_id=playlist.pk video_id=video.pk %}">
         {% csrf_token %}
         <button class="completion-button" type="submit" aria-label="{% if video.completed_at %}Mark {{ video.title }} incomplete{% else %}Mark {{ video.title }} complete{% endif %}">{% if video.completed_at %}Done{% else %}Mark done{% endif %}</button>
@@ -46,4 +93,5 @@
     <button class="provider-button primary-action" type="submit">Add to playlist</button>
   </form>
 </section>
+<script src="{% static 'tracker/playlist_reorder.js' %}" defer></script>
 {% endblock %}

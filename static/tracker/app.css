@@ -35,6 +35,14 @@ body {
 .text-link:hover { text-decoration: underline; }
 .page { width: min(100% - 40px, 900px); margin: 56px auto 80px; }
 .heading-row { display: flex; justify-content: space-between; align-items: end; margin-bottom: 28px; }
+.progress-chart-panel { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 32px; padding: 22px 24px; border: 1px solid var(--line); background: var(--surface); }
+.progress-chart-panel h2 { margin-bottom: 5px; }
+.global-progress-summary { margin-bottom: 12px; color: var(--muted); font: 13px/1.5 "Avenir Next", Avenir, sans-serif; }
+.global-progress-legend { display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font: 12px/1.4 "Avenir Next", Avenir, sans-serif; }
+.global-progress-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.completed-swatch { background: var(--accent); }
+.remaining-swatch { background: var(--line); }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 8px; font-size: clamp(32px, 5vw, 44px); font-weight: 500; line-height: 1.08; }
 h2 { margin: 0 0 5px; font: 600 17px/1.35 "Avenir Next", Avenir, sans-serif; }
@@ -46,6 +54,12 @@ h2 { margin: 0 0 5px; font: 600 17px/1.35 "Avenir Next", Avenir, sans-serif; }
 .plan-copy h2 a { color: var(--ink); text-decoration: none; }
 .plan-copy h2 a:hover { color: var(--accent); }
 .plan-row p { margin: 0; color: var(--muted); font: 13px/1.5 "Avenir Next", Avenir, sans-serif; }
+.plan-progress { display: flex; align-items: center; gap: 10px; margin-top: 8px; color: var(--muted); font: 12px/1.4 "Avenir Next", Avenir, sans-serif; }
+.plan-progress progress { width: min(240px, 55vw); height: 8px; border: 0; border-radius: 99px; overflow: hidden; accent-color: var(--accent); background: var(--line); }
+.plan-progress progress::-webkit-progress-bar { border-radius: 99px; background: var(--line); }
+.plan-progress progress::-webkit-progress-value { border-radius: 99px; background: var(--accent); }
+.plan-progress progress::-moz-progress-bar { border-radius: 99px; background: var(--accent); }
+.progress-empty { margin-top: 8px !important; }
 .plan-actions, .detail-actions { display: flex; align-items: center; gap: 14px; flex: none; font: 600 12px/1.4 "Avenir Next", Avenir, sans-serif; }
 .plan-actions a, .quiet-link { color: var(--accent); text-decoration: none; }
 .plan-actions a:hover, .quiet-link:hover { text-decoration: underline; }
@@ -82,6 +96,11 @@ h2 { margin: 0 0 5px; font: 600 17px/1.35 "Avenir Next", Avenir, sans-serif; }
 .video-list { border-top: 1px solid var(--line); }
 .video-row { display: flex; align-items: center; gap: 15px; padding: 13px 8px; border-bottom: 1px solid var(--line); }
 .video-row form { margin: 0; }
+.video-row.is-dragging { opacity: .45; }
+.video-row.drop-target { border-top: 2px solid var(--accent); }
+.drag-handle { flex: none; padding: 4px; border: 0; color: var(--muted); background: transparent; font: 700 20px/1 "Avenir Next", Avenir, sans-serif; cursor: grab; touch-action: none; }
+.drag-handle:active { cursor: grabbing; }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .completion-button { min-width: 82px; padding: 7px 9px; border: 1px solid var(--line); color: var(--accent); background: var(--surface); font: 600 11px/1.3 "Avenir Next", Avenir, sans-serif; cursor: pointer; }
 .completion-button:hover { border-color: var(--accent); background: var(--accent-soft); }
 .video-done .completion-button { color: var(--muted); }
@@ -117,6 +136,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
   .page { width: min(100% - 32px, 900px); margin-top: 38px; }
   .auth-panel { margin-top: 24px; padding: 24px; }
   .heading-row, .detail-heading { align-items: start; flex-direction: column; }
+  .progress-chart-panel { align-items: center; }
+  .global-progress-chart { width: 104px !important; height: 104px !important; }
   .plan-row { align-items: start; flex-direction: column; }
   .plan-actions { align-self: end; }
   .detail-actions { justify-content: start; }
